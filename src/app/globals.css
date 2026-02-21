@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Custom background setting to prevent white flash */
+body {
+  background-color: #F7F5F0;
+}
