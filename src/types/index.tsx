@@ -9,5 +9,5 @@ export interface WindowData {
   height: number;
   zIndex: number;
   content: React.ReactNode;
-  icon: string;
+  icon: React.ReactNode | string;
 }
