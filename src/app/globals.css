@@ -4,3 +4,228 @@
 body {
   background-color: #F7F5F0;
 }
+
+@layer utilities {
+  .modern-theme {
+    /* New 5-Color Editorial Palette from Image 2:
+       1. #445D48 - Forest Moss / Deep Sage
+       2. #FDE5D4 - Warm Peach Cream / Soft Linen
+       3. #D6CC99 - Earthy Sand Khaki / Warm Ochre
+       4. #001524 - Deep Midnight Navy / Ink Obsidian
+       5. #5E3023 - Deep Chestnut / Terracotta Rust
+    */
+    --bg-base: #001524;
+    --bg-surface: #042035;
+    --bg-surface-glass: rgba(4, 32, 53, 0.7);
+    --text-main: #FDE5D4;
+    --text-muted: #D6CC99;
+    --text-subtle: #8A9A86;
+    
+    /* Image 2 Primary Theme Swatches */
+    --theme-sage: #445D48;
+    --theme-peach: #FDE5D4;
+    --theme-khaki: #D6CC99;
+    --theme-midnight: #001524;
+    --theme-chestnut: #5E3023;
+
+    /* Image 1 Exact 6 Project Flashcard Colors */
+    --card-bike-buddy: #BC5E29; /* Terracotta Orange */
+    --card-weather: #48A1B2;    /* Ocean Teal Cyan */
+    --card-team: #553AC2;       /* Deep Electric Purple */
+    --card-quiz: #B94265;       /* Crimson Berry Rose */
+    --card-generator: #C5A126;  /* Golden Ochre Mustard */
+    --card-planner: #3150C7;    /* Electric Cobalt Blue */
+
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    font-family: var(--font-plus-jakarta-sans), sans-serif;
+    
+    /* Standard natural 100% scale (zoom in from previous 0.88) */
+    zoom: 1;
+  }
+
+  /* ── Smooth Infinite Non-Fluctuating Marquee Strip ── */
+  @keyframes marquee-scroll {
+    0% {
+      transform: translate3d(0, 0, 0);
+    }
+    100% {
+      transform: translate3d(-100%, 0, 0);
+    }
+  }
+
+  .marquee-track {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2.5rem;
+    padding-right: 2.5rem;
+    animation: marquee-scroll 32s linear infinite;
+    will-change: transform;
+  }
+
+  @media (min-width: 640px) {
+    .marquee-track {
+      gap: 3.5rem;
+      padding-right: 3.5rem;
+    }
+  }
+
+  .modern-grid-bg {
+    background-image: radial-gradient(rgba(214, 204, 153, 0.15) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: -1px -1px;
+    opacity: 0.4;
+  }
+
+  /* ── User's Signature Button Hover Animation (from reference code) ── */
+  .btn-pink,
+  .btn-wipe-hover {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    cursor: pointer;
+    transition: color 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease;
+    border: 2px solid transparent;
+  }
+
+  .btn-pink::before,
+  .btn-wipe-hover::before {
+    content: "";
+    position: absolute;
+    background-color: #ffffff;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .btn-pink:hover::before,
+  .btn-wipe-hover:hover::before {
+    transform: scaleX(1);
+  }
+
+  .btn-pink:hover,
+  .btn-wipe-hover:hover {
+    color: #001524 !important;
+    border-color: #e84949;
+    box-shadow: 0 8px 20px rgba(232, 73, 73, 0.4);
+  }
+
+  /* Variant for project card buttons (turns white, text dark, border white/accent) */
+  .btn-wipe-card {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    cursor: pointer;
+    transition: color 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+  }
+
+  .btn-wipe-card::before {
+    content: "";
+    position: absolute;
+    background-color: #ffffff;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .btn-wipe-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  .btn-wipe-card:hover {
+    color: #001524 !important;
+    border-color: #ffffff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  }
+
+  /* GPU accelerated layer to eliminate scroll lag */
+  .gpu-layer {
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  @keyframes marquee-scroll-reverse {
+    0% {
+      transform: translate3d(-100%, 0, 0);
+    }
+    100% {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  .marquee-track-reverse {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2.5rem;
+    padding-right: 2.5rem;
+    animation: marquee-scroll-reverse 32s linear infinite;
+    will-change: transform;
+  }
+
+  @media (min-width: 640px) {
+    .marquee-track-reverse {
+      gap: 3.5rem;
+      padding-right: 3.5rem;
+    }
+  }
+
+  /* ── Continuous Shining Effect from Left Corner to Right Corner (Slow graceful sweep, 2s repeat pause) ── */
+  @keyframes tile-corner-shine {
+    0% {
+      transform: translate3d(-130%, -130%, 0) rotate(30deg);
+      opacity: 0;
+    }
+    5% {
+      opacity: 0.85;
+    }
+    58% {
+      transform: translate3d(150%, 150%, 0) rotate(30deg);
+      opacity: 0.85;
+    }
+    64% {
+      opacity: 0;
+      transform: translate3d(150%, 150%, 0) rotate(30deg);
+    }
+    100% {
+      transform: translate3d(150%, 150%, 0) rotate(30deg);
+      opacity: 0;
+    }
+  }
+
+  .anim-tile-shine {
+    animation: tile-corner-shine 5.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  /* ── Subtle Ambient Glow Pulse for Skills Progress Filaments ── */
+  @keyframes skill-filament-pulse {
+    0%, 100% {
+      opacity: 0.85;
+    }
+    50% {
+      opacity: 1;
+      filter: drop-shadow(0 0 6px rgba(214, 204, 153, 0.6));
+    }
+  }
+
+  .anim-skill-filament {
+    animation: skill-filament-pulse 3s ease-in-out infinite;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}

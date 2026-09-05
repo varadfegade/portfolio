@@ -1,954 +1,1098 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useRef, useEffect } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { ArrowLeft, ArrowUpRight, Mail, Github, MapPin } from "lucide-react";
 
-// ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
-const G = () => (
+// ─── DESIGN TOKENS (warm-neutral editorial palette) ──────────────────────────
+// --linen:      #F4F1EA  — warm sand base background
+// --linen-2:    #EAE6DC  — slightly deeper panel bg
+// --ink:        #1C1E21  — deep charcoal primary text (high legibility)
+// --ink-2:      #4A4A4A  — secondary text
+// --ink-3:      #888580  — meta / caption text
+// --terracotta: #B85C38  — warm accent (links, highlights)
+// --terra-soft: rgba(184,92,56,0.10) — amber-tinted hover fill
+// --sage:       #5E7A63  — secondary accent
+// --frame:      #FFFFFF  — image card white border/bg
+// --border:     rgba(28,30,33,0.12) — neutral hairline
+
+// ─── STYLES ──────────────────────────────────────────────────────────────────
+const Styles = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=Fira+Code:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap');
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    .pf-root {
+      --linen:      #F4F1EA;
+      --linen-2:    #EAE6DC;
+      --linen-3:    #DDD9CF;
+      --ink:        #1C1E21;
+      --ink-2:      #4A4A4A;
+      --ink-3:      #8C8780;
+      --terracotta: #B85C38;
+      --terra-soft: rgba(184,92,56,0.09);
+      --sage:       #5E7A63;
+      --sage-soft:  rgba(94,122,99,0.10);
+      --frame:      #FFFFFF;
+      --border:     rgba(28,30,33,0.11);
+      --shadow-sm:  0 2px 12px rgba(28,30,33,0.07);
+      --shadow-md:  0 8px 40px rgba(28,30,33,0.10);
 
-    :root {
-      --bg:       #07080C;
-      --bg2:      #0D0F18;
-      --bg3:      #111420;
-      --line:     #1A1E2E;
-      --cream:    #EDE8DE;
-      --dim:      #4A5068;
-      --cyan:     #00E5FF;
-      --coral:    #FF3D5A;
-      --cyan-glow: rgba(0,229,255,0.18);
-      --coral-glow: rgba(255,61,90,0.18);
-      --f-display: 'Bebas Neue', sans-serif;
-      --f-serif:   'DM Serif Display', serif;
-      --f-mono:    'Fira Code', monospace;
-    }
-
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg);
-      color: var(--cream);
-      font-family: var(--f-mono);
+      background-color: var(--linen);
+      color: var(--ink);
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
       overflow-x: hidden;
-      cursor: none;
+      position: relative;
     }
 
-    /* CURSOR — crosshair style */
-    #cur-h, #cur-v, #cur-dot {
-      position: fixed; pointer-events: none; z-index: 9999; transition: opacity 0.2s;
-    }
-    #cur-h { height: 1px; width: 24px; background: var(--cyan); transform: translateY(-50%); }
-    #cur-v { width: 1px;  height: 24px; background: var(--cyan); transform: translateX(-50%); }
-    #cur-dot {
-      width: 5px; height: 5px; background: var(--cyan); border-radius: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 8px 2px var(--cyan);
-    }
-    #cur-ring {
-      position: fixed; pointer-events: none; z-index: 9998;
-      width: 40px; height: 40px; border: 1px solid var(--cyan);
-      border-radius: 0; /* square ring = brutal */
-      transform: translate(-50%, -50%);
-      opacity: 0.35; transition: width 0.15s, height 0.15s, opacity 0.2s;
+    /* ── Canvas dot-grid layer ── */
+    #pf-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 1;
     }
 
-    /* SCROLLBAR */
-    ::-webkit-scrollbar { width: 2px; }
-    ::-webkit-scrollbar-thumb { background: var(--cyan); }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-
-    /* NAV */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 18px 56px;
-      background: rgba(7,8,12,0.85);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--line);
-    }
-    .n-logo {
-      font-family: var(--f-display); font-size: 22px; letter-spacing: 0.12em;
-      color: var(--cream); text-decoration: none;
-    }
-    .n-logo span { color: var(--cyan); }
-    .n-links { display: flex; gap: 36px; list-style: none; align-items: center; }
-    .n-link {
-      font-size: 10px; letter-spacing: 0.18em; color: var(--dim);
-      text-decoration: none; transition: color 0.2s; text-transform: uppercase;
-      position: relative; cursor: none; background: transparent; border: none; font-family: var(--f-mono);
-    }
-    .n-link::after {
-      content: ''; position: absolute; left: 0; bottom: -3px;
-      width: 0; height: 1px; background: var(--cyan); transition: width 0.3s;
-    }
-    .n-link:hover { color: var(--cyan); }
-    .n-link:hover::after { width: 100%; }
-    .n-cta {
-      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.14em;
-      color: var(--bg); background: var(--cyan); border: none;
-      padding: 10px 22px; cursor: none; text-decoration: none;
-      text-transform: uppercase; transition: all 0.2s;
-      box-shadow: 0 0 16px rgba(0,229,255,0.3);
-    }
-    .n-cta:hover { background: var(--coral); box-shadow: 0 0 16px rgba(255,61,90,0.4); }
-
-    /* SECTION */
-    section { position: relative; }
-    .wrap { padding: 100px 56px; }
-
-    /* LABEL */
-    .lbl {
-      font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.22em;
-      color: var(--cyan); text-transform: uppercase;
-      display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
-    }
-    .lbl-line { width: 32px; height: 1px; background: var(--cyan); }
-
-    /* BIG NUM BG */
-    .bnum {
-      position: absolute; font-family: var(--f-display);
-      font-size: clamp(180px, 22vw, 320px); color: var(--bg2);
-      line-height: 1; pointer-events: none; user-select: none;
-      z-index: 0; letter-spacing: -0.02em;
+    /* ── Floating nav ── */
+    .pf-nav {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 8px;
+      background: rgba(244,241,234,0.82);
+      border: 2px solid #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.85), 0 0 24px rgba(255,255,255,0.35);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
     }
 
-    /* REVEAL */
-    .r { opacity: 0; transform: translateY(36px) skewY(1deg); transition: opacity 0.65s ease, transform 0.65s ease; }
-    .r.in { opacity: 1; transform: none; }
-    .r.d1 { transition-delay: 0.08s; }
-    .r.d2 { transition-delay: 0.16s; }
-    .r.d3 { transition-delay: 0.24s; }
-    .r.d4 { transition-delay: 0.32s; }
+    .pf-nav-btn {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink-2);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 6px 14px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+    .pf-nav-btn:hover {
+      color: var(--ink);
+      background: rgba(28,30,33,0.05);
+      border-color: var(--border);
+    }
+    .pf-nav-sep {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      flex-shrink: 0;
+      margin: 0 4px;
+    }
+    .pf-nav-cta {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #fff;
+      background: var(--terracotta);
+      border: none;
+      border-radius: 12px;
+      padding: 7px 18px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.18s ease, transform 0.12s ease;
+      box-shadow: 0 2px 12px rgba(184,92,56,0.3);
+    }
+    .pf-nav-cta:hover { opacity: 0.88; transform: scale(0.97); }
 
-    /* MARQUEE */
-    .marquee-wrap { overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-    .marquee-track {
-      display: flex; gap: 0; white-space: nowrap;
-      animation: marquee 22s linear infinite;
+    /* ── Hero layout ── */
+    .pf-hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+      padding: 140px 80px 80px;
+      max-width: 1360px;
+      margin: 0 auto;
     }
-    .marquee-track:hover { animation-play-state: paused; }
-    @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-    .m-item {
-      font-family: var(--f-display); font-size: 13px; letter-spacing: 0.14em;
-      color: var(--dim); padding: 14px 28px; flex-shrink: 0;
-      transition: color 0.2s;
+    @media (max-width: 960px) {
+      .pf-hero { grid-template-columns: 1fr; padding: 120px 28px 60px; gap: 48px; }
     }
-    .m-item:hover { color: var(--cyan); }
-    .m-dot { color: var(--coral); padding: 14px 4px; font-size: 18px; flex-shrink: 0; line-height: 1.2; }
 
-    /* HERO */
-    .hero {
-      min-height: 100vh; display: flex; flex-direction: column; justify-content: flex-end;
-      padding: 0 56px 72px; background: var(--bg);
-      border-bottom: 1px solid var(--line); overflow: hidden;
+    /* ── Image art-card frame ── */
+    .pf-frame-outer {
+      position: relative;
+      display: flex;
+      justify-content: center;
     }
-    .hero-grid {
-      position: absolute; inset: 0;
-      background-image:
-        linear-gradient(var(--line) 1px, transparent 1px),
-        linear-gradient(90deg, var(--line) 1px, transparent 1px);
-      background-size: 64px 64px;
-      opacity: 0.6;
-    }
-    .hero-vignette {
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse at 20% 80%, rgba(0,229,255,0.04) 0%, transparent 50%),
-                  radial-gradient(ellipse at 80% 20%, rgba(255,61,90,0.04) 0%, transparent 50%);
-    }
-    .hero-tag {
-      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.15em;
-      color: var(--dim); margin-bottom: 16px; position: relative; z-index: 1;
-    }
-    .hero-tag span { color: var(--cyan); }
-    .h1-big {
-      font-family: var(--f-display);
-      font-size: clamp(80px, 15vw, 220px);
-      line-height: 0.88; letter-spacing: 0.01em;
-      color: var(--cream); position: relative; z-index: 1;
-    }
-    .h1-big .stroke {
-      -webkit-text-stroke: 1px var(--cream);
-      color: transparent;
-    }
-    .h1-big .glow {
-      color: var(--cyan);
-      text-shadow: 0 0 60px rgba(0,229,255,0.4), 0 0 120px rgba(0,229,255,0.15);
-    }
-    .hero-sub {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
-      margin-top: 48px; padding-top: 32px;
-      border-top: 1px solid var(--line); position: relative; z-index: 1;
-    }
-    .hero-desc {
-      font-family: var(--f-mono); font-size: 12px; color: var(--dim); line-height: 1.9;
-    }
-    .hero-stats { display: flex; gap: 40px; align-items: flex-end; justify-content: flex-end; }
-    .hstat-v {
-      font-family: var(--f-display); font-size: 52px; color: var(--cyan); line-height: 1;
-      text-shadow: 0 0 30px rgba(0,229,255,0.35);
-    }
-    .hstat-l { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-top: 4px; }
-
-    /* ABOUT */
-    .about-grid {
-      display: grid; grid-template-columns: 55% 45%; gap: 0;
-      border: 1px solid var(--line); position: relative; z-index: 1;
-    }
-    .about-left { padding: 56px; border-right: 1px solid var(--line); }
-    .about-right { padding: 56px; background: var(--bg2); }
-    .serif-quote {
-      font-family: var(--f-serif); font-style: italic;
-      font-size: clamp(28px, 3.5vw, 46px); line-height: 1.3;
-      color: var(--cream); margin-bottom: 32px;
-    }
-    .serif-quote em { color: var(--cyan); font-style: normal; }
-
-    /* EDU ITEM */
-    .edu-item {
-      padding: 20px 0;
-      border-bottom: 1px solid var(--line);
-    }
-    .edu-item:last-child { border-bottom: none; }
-    .edu-yr { font-size: 9px; letter-spacing: 0.14em; color: var(--coral); margin-bottom: 6px; }
-    .edu-school { font-family: var(--f-display); font-size: 20px; letter-spacing: 0.06em; color: var(--cream); }
-    .edu-score {
-      font-size: 10px; color: var(--dim); margin-top: 4px;
-    }
-    .edu-score span { color: var(--cyan); }
-
-    /* STACK SECTION */
-    .stack-section { background: var(--bg2); }
-    .stack-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      border: 1px solid var(--line); position: relative; z-index: 1;
-    }
-    .stack-cell {
-      padding: 28px 32px; border-right: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      transition: background 0.25s;
-      position: relative; overflow: hidden;
-    }
-    .stack-cell:hover { background: var(--bg3); }
-    .stack-cell::after {
-      content: ''; position: absolute; left: 0; top: 0;
-      width: 3px; height: 0; background: var(--cyan);
-      transition: height 0.3s;
-    }
-    .stack-cell:hover::after { height: 100%; }
-    .stack-cell:nth-child(3n) { border-right: none; }
-    .stack-cell:nth-last-child(-n+3) { border-bottom: none; }
-    .sc-cat {
-      font-size: 9px; letter-spacing: 0.18em; color: var(--cyan);
-      text-transform: uppercase; margin-bottom: 12px;
-    }
-    .sc-items { font-size: 11px; color: var(--dim); line-height: 2; }
-
-    /* ORBIT */
-    .orbit-wrap {
-      position: relative; height: 480px; display: flex;
-      align-items: center; justify-content: center;
+    .pf-frame {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      aspect-ratio: 3 / 4;
+      background: var(--frame);
+      border: 2px solid #FFFFFF;
+      border-radius: 20px;
+      box-shadow:
+        0 0 0 1px rgba(28,30,33,0.08),
+        0 24px 64px rgba(28,30,33,0.15),
+        0 4px 12px rgba(28,30,33,0.08);
       overflow: hidden;
     }
-    .o-center {
-      position: absolute; z-index: 10;
-      width: 68px; height: 68px;
-      border: 1px solid var(--cyan); border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 24px rgba(0,229,255,0.25), inset 0 0 16px rgba(0,229,255,0.08);
+    /* Offset shadow card for depth */
+    .pf-frame::before {
+      content: '';
+      position: absolute;
+      inset: -12px;
+      z-index: -1;
+      border-radius: 28px;
+      background: var(--linen-2);
+      border: 1px solid var(--border);
+      transform: rotate(-2deg);
+      box-shadow: var(--shadow-sm);
     }
-    .o-center-txt { font-size: 8px; letter-spacing: 0.06em; color: var(--cyan); text-align: center; line-height: 1.5; }
-    .o-ring {
-      position: absolute; border-radius: 50%;
-      border: 1px dashed var(--line);
-      animation: ospin linear infinite;
+    .pf-frame-inner {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(165deg, #E8E0D2 0%, #CEC5B5 50%, #BEB4A4 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
     }
-    @keyframes ospin { to { transform: rotate(360deg); } }
-    .o-node {
-      position: absolute; animation: ospin linear infinite reverse;
+    /* Subtle texture lines inside frame */
+    .pf-frame-inner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 40px,
+        rgba(255,255,255,0.06) 40px,
+        rgba(255,255,255,0.06) 41px
+      );
     }
-    .o-pill {
-      font-size: 9px; letter-spacing: 0.08em; white-space: nowrap;
-      padding: 4px 10px; color: var(--dim);
-      border: 1px solid var(--line); background: var(--bg2);
-      transition: all 0.25s; cursor: none;
+    .pf-monogram {
+      font-family: 'Lora', Georgia, serif;
+      font-size: clamp(80px, 14vw, 130px);
+      font-weight: 600;
+      color: rgba(28,30,33,0.12);
+      line-height: 1;
+      letter-spacing: -0.04em;
+      user-select: none;
+      position: relative;
+      z-index: 1;
     }
-    .o-pill:hover {
-      color: var(--cyan); border-color: var(--cyan);
-      box-shadow: 0 0 10px rgba(0,229,255,0.2);
+    .pf-frame-badge {
+      position: absolute;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid rgba(28,30,33,0.08);
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+      white-space: nowrap;
+      box-shadow: 0 2px 16px rgba(28,30,33,0.08);
     }
-
-    /* PROJECTS */
-    .proj-section { background: var(--bg); }
-    .proj-list { display: flex; flex-direction: column; gap: 0; position: relative; z-index: 1; }
-    .proj-item {
-      display: grid; grid-template-columns: 80px 1fr 1fr auto;
-      gap: 0; border: 1px solid var(--line); margin-bottom: -1px;
-      transition: background 0.3s;
-      position: relative; overflow: hidden;
+    .pf-badge-dot {
+      width: 8px; height: 8px;
+      background: var(--sage);
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(94,122,99,0.2);
     }
-    .proj-item::before {
-      content: ''; position: absolute; left: 0; top: 0;
-      width: 0; height: 100%; background: var(--cyan-glow);
-      transition: width 0.4s ease;
-    }
-    .proj-item:hover::before { width: 100%; }
-    .proj-item:hover { border-color: var(--cyan); z-index: 2; }
-
-    .proj-num {
-      padding: 32px 24px;
-      border-right: 1px solid var(--line);
-      display: flex; align-items: flex-start; justify-content: center;
-      font-family: var(--f-display); font-size: 28px; color: var(--line);
-      transition: color 0.3s;
-    }
-    .proj-item:hover .proj-num { color: var(--cyan); }
-
-    .proj-info { padding: 32px 36px; border-right: 1px solid var(--line); }
-    .proj-title {
-      font-family: var(--f-display); font-size: 32px; letter-spacing: 0.04em;
-      color: var(--cream); line-height: 1; margin-bottom: 12px;
-      transition: color 0.3s;
-    }
-    .proj-item:hover .proj-title { color: var(--cyan); }
-    .proj-desc { font-size: 11px; color: var(--dim); line-height: 1.8; }
-
-    .proj-tags {
-      padding: 32px 36px; border-right: 1px solid var(--line);
-      display: flex; flex-direction: column; justify-content: center; gap: 8px;
-    }
-    .tag {
-      font-size: 9px; letter-spacing: 0.1em; padding: 4px 10px;
-      border: 1px solid var(--line); color: var(--dim); display: inline-block;
-      width: fit-content; transition: all 0.25s;
-    }
-    .proj-item:hover .tag { border-color: rgba(0,229,255,0.3); color: var(--cyan); }
-
-    .proj-cta {
-      padding: 32px 28px; display: flex;
-      align-items: center; justify-content: center;
-    }
-    .arrow-btn {
-      width: 48px; height: 48px; border: 1px solid var(--line);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--dim); font-size: 18px; text-decoration: none;
-      transition: all 0.25s; cursor: none;
-    }
-    .proj-item:hover .arrow-btn {
-      border-color: var(--cyan); color: var(--cyan);
-      box-shadow: 0 0 16px rgba(0,229,255,0.2);
+    .pf-badge-txt {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.01em;
     }
 
-    /* CONTACT */
-    .contact-section { background: var(--bg2); }
-    .contact-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 0; border: 1px solid var(--line); position: relative; z-index: 1;
+    /* ── Hero text ── */
+    .pf-hero-tag {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--terracotta);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 22px;
     }
-    .c-left { padding: 56px; border-right: 1px solid var(--line); }
-    .c-right { padding: 56px; }
-    .c-heading {
-      font-family: var(--f-display); font-size: clamp(42px, 6vw, 84px);
-      line-height: 0.92; letter-spacing: 0.02em; color: var(--cream);
+    .pf-hero-tag::before {
+      content: '';
+      display: block;
+      width: 28px;
+      height: 1.5px;
+      background: var(--terracotta);
+      flex-shrink: 0;
+    }
+
+    .pf-hero-h1 {
+      font-family: 'Lora', Georgia, serif;
+      font-size: clamp(48px, 6.5vw, 88px);
+      font-weight: 600;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      margin: 0 0 6px;
+    }
+    .pf-hero-h1-outline {
+      font-family: 'Lora', Georgia, serif;
+      font-size: clamp(48px, 6.5vw, 88px);
+      font-weight: 400;
+      font-style: italic;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(28,30,33,0.4);
+      margin: 0 0 32px;
+    }
+    .pf-hero-desc {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.85;
+      color: var(--ink-2);
+      max-width: 420px;
+      margin: 0 0 40px;
+    }
+
+    /* ── CTA row ── */
+    .pf-cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .pf-btn-primary {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #fff;
+      background: var(--ink);
+      border: none;
+      border-radius: 999px;
+      padding: 13px 28px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s ease, transform 0.12s ease;
+    }
+    .pf-btn-primary:hover { background: var(--terracotta); transform: scale(0.98); }
+    .pf-btn-secondary {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-2);
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      padding: 12px 24px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .pf-btn-secondary:hover { border-color: var(--ink-2); color: var(--ink); background: rgba(28,30,33,0.04); }
+
+    /* ── Marquee ── */
+    .pf-marquee-shell {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--linen-2);
+      overflow: hidden;
+    }
+    .pf-marquee-shell::before,
+    .pf-marquee-shell::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 100px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .pf-marquee-shell::before { left: 0; background: linear-gradient(90deg, var(--linen-2), transparent); }
+    .pf-marquee-shell::after  { right: 0; background: linear-gradient(-90deg, var(--linen-2), transparent); }
+    .pf-marquee-track {
+      display: flex;
+      width: max-content;
+      animation: pfScroll 32s linear infinite;
+    }
+    .pf-marquee-track:hover { animation-play-state: paused; }
+    @keyframes pfScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .pf-marquee-item {
+      font-family: 'Lora', serif;
+      font-style: italic;
+      font-size: 19px;
+      font-weight: 400;
+      color: var(--ink-3);
+      padding: 16px 28px;
+      flex-shrink: 0;
+      transition: color 0.2s;
+    }
+    .pf-marquee-item:hover { color: var(--ink); }
+    .pf-marquee-sep {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 9px;
+      color: var(--terracotta);
+      padding: 16px 6px;
+      flex-shrink: 0;
+      line-height: 1.8;
+      opacity: 0.7;
+    }
+
+    /* ── Sections ── */
+    .pf-section {
+      position: relative;
+      z-index: 1;
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 100px 80px;
+    }
+    @media (max-width: 960px) { .pf-section { padding: 72px 28px; } }
+
+    .pf-section-label {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 56px;
+    }
+    .pf-section-label-txt {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--terracotta);
+    }
+    .pf-section-label-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── About grid ── */
+    .pf-about-grid {
+      display: grid;
+      grid-template-columns: 58% 42%;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--frame);
+      box-shadow: var(--shadow-sm);
+    }
+    @media (max-width: 960px) { .pf-about-grid { grid-template-columns: 1fr; } }
+    .pf-about-left { padding: 52px; border-right: 1px solid var(--border); }
+    .pf-about-right { padding: 52px; background: var(--linen-2); }
+    .pf-about-right-heading {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-3);
       margin-bottom: 28px;
     }
-    .c-heading .hl { color: var(--coral); text-shadow: 0 0 40px rgba(255,61,90,0.3); }
-    .c-body { font-size: 11px; color: var(--dim); line-height: 1.9; margin-bottom: 40px; }
-    .c-link-row {
-      display: flex; align-items: baseline; gap: 16px;
-      padding: 14px 0; border-bottom: 1px solid var(--line);
+    .pf-serif-quote {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(22px, 2.5vw, 34px);
+      line-height: 1.35;
+      color: var(--ink);
+      margin-bottom: 28px;
     }
-    .c-link-row:first-of-type { border-top: 1px solid var(--line); }
-    .c-lbl { font-size: 9px; letter-spacing: 0.18em; color: var(--coral); min-width: 68px; }
-    .c-val {
-      font-size: 11px; color: var(--cream); text-decoration: none;
-      transition: color 0.2s; cursor: none;
-    }
-    .c-val:hover { color: var(--cyan); }
+    .pf-serif-quote em { color: var(--terracotta); font-style: normal; font-weight: 600; }
 
-    /* FORM */
-    .f-group { margin-bottom: 28px; }
-    .f-label { font-size: 9px; letter-spacing: 0.18em; color: var(--cyan); display: block; margin-bottom: 8px; }
-    .f-input {
-      width: 100%; background: var(--bg); border: 1px solid var(--line);
-      font-family: var(--f-mono); font-size: 12px; color: var(--cream);
-      padding: 12px 14px; outline: none; transition: border-color 0.2s; cursor: none;
-    }
-    .f-input:focus { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,229,255,0.1); }
-    .f-input::placeholder { color: var(--dim); font-size: 10px; }
-    .f-submit {
-      font-family: var(--f-display); font-size: 18px; letter-spacing: 0.1em;
-      color: var(--bg); background: var(--cyan); border: none;
-      padding: 16px 36px; cursor: none; transition: all 0.25s;
-      box-shadow: 0 0 24px rgba(0,229,255,0.25);
-    }
-    .f-submit:hover { background: var(--coral); box-shadow: 0 0 24px rgba(255,61,90,0.3); }
-    .f-sent {
-      height: 100%; display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 12px; text-align: center;
-    }
-    .f-sent-h { font-family: var(--f-display); font-size: 36px; color: var(--cyan); }
+    /* ── Education ── */
+    .pf-edu-item { padding: 20px 0; border-bottom: 1px solid var(--border); }
+    .pf-edu-item:last-child { border-bottom: none; }
+    .pf-edu-yr { font-family: 'Plus Jakarta Sans', monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--terracotta); margin-bottom: 6px; text-transform: uppercase; }
+    .pf-edu-school { font-family: 'Lora', serif; font-size: 18px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+    .pf-edu-score { font-size: 13px; color: var(--ink-3); }
+    .pf-edu-score span { color: var(--sage); font-weight: 600; }
 
-    /* FOOTER */
-    footer {
-      padding: 24px 56px; border-top: 1px solid var(--line);
-      display: flex; justify-content: space-between; align-items: center;
-      background: var(--bg);
+    /* ── Tech pills ── */
+    .pf-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+    .pf-pill {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px; font-weight: 500;
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--ink-2);
+      background: var(--linen);
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
-    footer span { font-size: 10px; color: var(--dim); letter-spacing: 0.1em; }
-    footer span b { color: var(--coral); font-weight: 400; }
+    .pf-pill:hover { border-color: var(--terracotta); color: var(--terracotta); background: var(--terra-soft); }
 
-    /* SCRAMBLE */
-    .scramble { display: inline; }
-
-    @media (max-width: 900px) {
-      .wrap { padding: 80px 24px; }
-      nav { padding: 16px 24px; }
-      .n-links { display: none; }
-      .hero { padding: 0 24px 56px; }
-      .about-grid, .contact-grid { grid-template-columns: 1fr; }
-      .about-left, .about-right, .c-left, .c-right { border-right: none; border-bottom: 1px solid var(--line); }
-      .proj-item { grid-template-columns: 60px 1fr; grid-template-rows: auto auto auto; }
-      .proj-tags, .proj-cta { display: none; }
-      .stack-grid { grid-template-columns: 1fr 1fr; }
-      .hero-sub { grid-template-columns: 1fr; }
+    /* ── Projects ── */
+    .pf-proj-list { display: flex; flex-direction: column; }
+    .pf-proj-row {
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      align-items: stretch;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.2s;
     }
+    .pf-proj-row:hover { background: var(--frame); }
+    .pf-proj-num {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 36px 0;
+      font-family: 'Plus Jakarta Sans', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-3);
+      border-right: 1px solid var(--border);
+      transition: color 0.2s;
+    }
+    .pf-proj-row:hover .pf-proj-num { color: var(--terracotta); }
+    .pf-proj-body { padding: 36px 40px; border-right: 1px solid var(--border); }
+    .pf-proj-title {
+      font-family: 'Lora', serif;
+      font-size: clamp(20px, 2.2vw, 28px);
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 10px;
+      transition: color 0.2s;
+    }
+    .pf-proj-row:hover .pf-proj-title { color: var(--terracotta); }
+    .pf-proj-desc { font-size: 14px; color: var(--ink-2); line-height: 1.75; margin-bottom: 16px; max-width: 560px; }
+    .pf-tag {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px; font-weight: 500;
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--ink-3);
+      display: inline-block;
+      margin-right: 6px;
+      margin-bottom: 4px;
+      background: var(--linen);
+    }
+    .pf-proj-row:hover .pf-tag { border-color: rgba(184,92,56,0.3); }
+    .pf-proj-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 36px;
+    }
+    .pf-arrow-btn {
+      width: 44px; height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink-3);
+      transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
+    }
+    .pf-proj-row:hover .pf-arrow-btn {
+      border-color: var(--terracotta);
+      color: var(--terracotta);
+      background: var(--terra-soft);
+      transform: rotate(45deg);
+    }
+
+    /* ── Contact ── */
+    .pf-contact-inner {
+      background: var(--ink);
+      border-radius: 24px;
+      padding: 80px 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+    }
+    .pf-contact-inner::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: rgba(184,92,56,0.08);
+      pointer-events: none;
+    }
+    .pf-contact-h2 {
+      font-family: 'Lora', serif;
+      font-size: clamp(34px, 4.5vw, 60px);
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 18px;
+    }
+    .pf-contact-h2 em { color: var(--terracotta); font-style: italic; }
+    .pf-contact-sub { font-size: 15px; color: rgba(255,255,255,0.55); line-height: 1.8; max-width: 440px; margin-bottom: 40px; }
+
+    /* ── Footer ── */
+    .pf-footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 24px 80px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    @media (max-width: 960px) { .pf-footer { padding: 20px 28px; flex-direction: column; gap: 12px; } }
+    .pf-footer-copy { font-size: 13px; color: var(--ink-3); }
+    .pf-footer-copy b { color: var(--terracotta); font-weight: 600; }
+
+    /* ── Scroll reveal ── */
+    .pf-r { opacity: 0; transform: translateY(24px); transition: opacity 0.65s ease, transform 0.65s ease; }
+    .pf-r.pf-in { opacity: 1; transform: none; }
+    .pf-r.d1 { transition-delay: 0.08s; }
+    .pf-r.d2 { transition-delay: 0.16s; }
+    .pf-r.d3 { transition-delay: 0.24s; }
+    .pf-r.d4 { transition-delay: 0.32s; }
   `}</style>
 );
 
-// ─── CUSTOM CURSOR ────────────────────────────────────────────────────────────
-const Cursor = () => {
-  const hRef  = useRef<HTMLDivElement>(null);
-  const vRef  = useRef<HTMLDivElement>(null);
-  const dRef  = useRef<HTMLDivElement>(null);
-  const rRef  = useRef<HTMLDivElement>(null);
-  const pos   = useRef({ x: -200, y: -200 });
-  const ring  = useRef({ x: -200, y: -200 });
-  const raf   = useRef<number | null>(null);
+// ─── INTERACTIVE DOT-GRID CANVAS ─────────────────────────────────────────────
+function DotGrid() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mouseRef = useRef({ x: -999, y: -999 });
+  const rafRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    const mv = (e: MouseEvent) => { pos.current = { x: e.clientX, y: e.clientY }; };
-    window.addEventListener("mousemove", mv);
+  const draw = useRef<() => void>(() => {});
 
-    const tick = () => {
-      const { x, y } = pos.current;
-      if (hRef.current)  { hRef.current.style.left = (x - 12) + "px"; hRef.current.style.top = y + "px"; }
-      if (vRef.current)  { vRef.current.style.left = x + "px"; vRef.current.style.top = (y - 12) + "px"; }
-      if (dRef.current)  { dRef.current.style.left = x + "px"; dRef.current.style.top = y + "px"; }
-      if (rRef.current)  {
-        ring.current.x += (x - ring.current.x) * 0.1;
-        ring.current.y += (y - ring.current.y) * 0.1;
-        rRef.current.style.left = ring.current.x + "px";
-        rRef.current.style.top  = ring.current.y + "px";
+  draw.current = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const SPACING = 36;
+    const COLS = Math.ceil(W / SPACING) + 1;
+    const ROWS = Math.ceil(H / SPACING) + 1;
+    const MAX_INFLUENCE = 130;
+    const MAX_SCALE = 3.2;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const bx = c * SPACING;
+        const by = r * SPACING;
+
+        const dx = bx - mx;
+        const dy = by - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const proximity = Math.max(0, 1 - dist / MAX_INFLUENCE);
+        const scale = 1 + (MAX_SCALE - 1) * (proximity * proximity);
+
+        const radius = 1.2 * scale;
+        const alpha = 0.13 + proximity * 0.42;
+
+        ctx.beginPath();
+        ctx.arc(bx, by, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(28,30,33,${alpha})`;
+        ctx.fill();
       }
-      raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => { 
-      window.removeEventListener("mousemove", mv); 
-      if (raf.current) cancelAnimationFrame(raf.current); 
-    };
-  }, []);
+    }
 
-  return (
-    <>
-      <div id="cur-h" ref={hRef} />
-      <div id="cur-v" ref={vRef} />
-      <div id="cur-dot" ref={dRef} />
-      <div id="cur-ring" ref={rRef} />
-    </>
-  );
-};
-
-// ─── SCRAMBLE TEXT ────────────────────────────────────────────────────────────
-const GLYPHS = "!<>-_\\/[]{}—=+*^?#@$%&0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-const Scramble = ({ text, delay = 0, className = "", as: Tag = "span" }: any) => {
-  const [out, setOut] = useState(text.split("").map((c: string) => c === " " ? " " : "█"));
-  const done = useRef(new Array(text.length).fill(false));
+    rafRef.current = requestAnimationFrame(draw.current);
+  };
 
   useEffect(() => {
-    let frame = 0;
-    const t = setTimeout(() => {
-      const id = setInterval(() => {
-        setOut(text.split("").map((c: string, i: number) => {
-          if (c === " ") return " ";
-          if (i <= frame * 0.5) { done.current[i] = true; return c; }
-          return done.current[i] ? c : GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-        }));
-        frame++;
-        if (frame > text.length * 2.2) clearInterval(id);
-      }, 35);
-      return () => clearInterval(id);
-    }, delay);
-    return () => clearTimeout(t);
-  }, [text, delay]);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  return <Tag className={className}>{out.join("")}</Tag>;
-};
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
 
-// ─── WARPED GRID HERO ─────────────────────────────────────────────────────────
-const WarpGrid = () => {
-  const ref   = useRef<SVGSVGElement>(null);
-  const mouse = useRef({ x: 0.5, y: 0.5 });
-  const raf   = useRef<number | null>(null);
-  const COLS  = 16, ROWS = 9;
+    const onMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+    };
+    const onLeave = () => {
+      mouseRef.current = { x: -999, y: -999 };
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseleave", onLeave);
 
-  const [pts, setPts] = useState(() => {
-    const a = [];
-    for (let r = 0; r <= ROWS; r++)
-      for (let c = 0; c <= COLS; c++)
-        a.push({ bx: c / COLS, by: r / ROWS, x: c / COLS, y: r / ROWS });
-    return a;
-  });
+    rafRef.current = requestAnimationFrame(draw.current);
 
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", onLeave);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [draw]);
+
+  return <canvas ref={canvasRef} id="pf-canvas" aria-hidden="true" />;
+}
+
+// ─── REVEAL HOOK ──────────────────────────────────────────────────────────────
+function useReveal() {
   useEffect(() => {
-    const mv = (e: MouseEvent) => {
-      const rc = ref.current?.getBoundingClientRect();
-      if (!rc) return;
-      mouse.current = { x: (e.clientX - rc.left) / rc.width, y: (e.clientY - rc.top) / rc.height };
-    };
-    window.addEventListener("mousemove", mv);
-
-    const tick = () => {
-      setPts(p => p.map(pt => {
-        const dx = pt.bx - mouse.current.x, dy = pt.by - mouse.current.y;
-        const d = Math.sqrt(dx * dx + dy * dy) + 0.001;
-        const f = Math.max(0, 0.1 - d) * 80;
-        const tx = pt.bx + (dx / d) * f * 0.012;
-        const ty = pt.by + (dy / d) * f * 0.012;
-        return { ...pt, x: pt.x + (tx - pt.x) * 0.09, y: pt.y + (ty - pt.y) * 0.09 };
-      }));
-      raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => { 
-      window.removeEventListener("mousemove", mv); 
-      if (raf.current) cancelAnimationFrame(raf.current); 
-    };
+    const els = document.querySelectorAll(".pf-r");
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("pf-in");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
   }, []);
+}
 
-  const g = (r: number, c: number) => pts[r * (COLS + 1) + c];
+// ─── NAVBAR ───────────────────────────────────────────────────────────────────
+function Navbar({ onBack }: { onBack: () => void }) {
   return (
-    <svg ref={ref} viewBox="0 0 100 100" preserveAspectRatio="none"
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.22 }}>
-      {Array.from({ length: ROWS }, (_, r) =>
-        Array.from({ length: COLS }, (_, c) => {
-          const p = g(r,c), pr = g(r,c+1), pb = g(r+1,c);
-          return (
-            <g key={`${r}-${c}`}>
-              <line x1={p.x*100} y1={p.y*100} x2={pr.x*100} y2={pr.y*100} stroke="#00E5FF" strokeWidth="0.12" />
-              <line x1={p.x*100} y1={p.y*100} x2={pb.x*100} y2={pb.y*100} stroke="#00E5FF" strokeWidth="0.12" />
-            </g>
-          );
-        })
-      )}
-      {pts.filter((_, i) => i % 3 === 0).map((p, i) => (
-        <circle key={i} cx={p.x*100} cy={p.y*100} r="0.35" fill="#00E5FF" opacity="0.5" />
+    <motion.nav
+      role="navigation"
+      aria-label="Portfolio navigation"
+      className="pf-nav"
+      initial={{ y: -80, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <button onClick={onBack} className="pf-nav-btn">
+        <ArrowLeft size={13} strokeWidth={2.5} />
+        OS Mode
+      </button>
+      <div className="pf-nav-sep" />
+      {["About", "Projects", "Contact"].map((l) => (
+        <a key={l} href={`#${l.toLowerCase()}`} className="pf-nav-btn">
+          {l}
+        </a>
       ))}
-    </svg>
+      <div className="pf-nav-sep" />
+      <a href="mailto:varadfegade@gmail.com" className="pf-nav-cta">
+        Hire Me <ArrowUpRight size={13} strokeWidth={2.5} />
+      </a>
+    </motion.nav>
   );
-};
+}
 
-// ─── MARQUEE ─────────────────────────────────────────────────────────────────
-const Marquee = () => {
-  const items = ["React.js", "Next.js 14", "Node.js", "Express.js", "TypeScript",
-                 "Tailwind CSS", "MERN Stack", "C++", "Python", "JavaScript",
-                 "DSA", "Git", "Vercel", "HTML5", "CSS3"];
-  const all = [...items, ...items]; // duplicate for seamless loop
+// ─── MARQUEE ──────────────────────────────────────────────────────────────────
+function SkillMarquee() {
+  const items = [
+    "React", "Next.js 14", "TypeScript", "MERN Stack",
+    "Node.js", "Express", "MongoDB", "C++", "Tailwind CSS",
+    "REST APIs", "Git", "Vercel",
+  ];
+  const all = [...items, ...items];
+
   return (
-    <div className="marquee-wrap">
-      <div className="marquee-track">
+    <div className="pf-marquee-shell" role="marquee" aria-label="Skills">
+      <div className="pf-marquee-track">
         {all.map((item, i) => (
-          <span key={i}>
-            <span className="m-item">{item}</span>
-            <span className="m-dot">·</span>
+          <span key={i} style={{ display: "flex", alignItems: "center" }}>
+            <span className="pf-marquee-item">{item}</span>
+            <span className="pf-marquee-sep" aria-hidden="true">◆</span>
           </span>
         ))}
       </div>
     </div>
   );
-};
+}
 
-// ─── TECH ORBIT ──────────────────────────────────────────────────────────────
-const Orbit = () => {
-  const rings = [
-    { r: 85,  dur: 22, nodes: ["React.js", "Node.js"] },
-    { r: 140, dur: 36, nodes: ["Next.js 14", "Express.js", "TypeScript"] },
-    { r: 195, dur: 50, nodes: ["Tailwind", "HTML5", "CSS3", "Git"] },
-    { r: 230, dur: 65, nodes: ["C++", "Java", "Python", "Vercel"] },
-  ];
+// ─── HERO ─────────────────────────────────────────────────────────────────────
+function Hero() {
+  const ref = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+
+  // Parallax layers
+  const frameY  = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
+  const textY   = useTransform(scrollYProgress, [0, 1], ["0%", "10%"]);
+  const bgBlobY = useTransform(scrollYProgress, [0, 1], ["0%", "35%"]);
+
   return (
-    <div className="orbit-wrap">
-      <div className="o-center">
-        <span className="o-center-txt">VF<br/>CORE</span>
-      </div>
-      {rings.map((ring, ri) => (
-        <div key={ri} className="o-ring"
-          style={{ width: ring.r*2, height: ring.r*2, animationDuration: ring.dur+"s" }}>
-          {ring.nodes.map((n, ni) => {
-            const a = (ni / ring.nodes.length) * 360;
-            const rad = a * Math.PI / 180;
-            return (
-              <div key={n} className="o-node"
-                style={{
-                  left: ring.r + ring.r * Math.cos(rad),
-                  top:  ring.r + ring.r * Math.sin(rad),
-                  animationDuration: ring.dur+"s",
-                }}>
-                <span className="o-pill">{n}</span>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
+    <header ref={ref} className="pf-hero">
+      {/* Parallax soft blob behind frame */}
+      <motion.div
+        style={{ y: bgBlobY }}
+        aria-hidden="true"
+        className="pf-frame-outer"
+      >
+        {/* Subtle blob */}
+        <div
+          style={{
+            position: "absolute",
+            top: "-60px", left: "-40px",
+            width: "340px", height: "340px",
+            borderRadius: "50%",
+            background: "radial-gradient(ellipse, rgba(184,92,56,0.09) 0%, transparent 70%)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+
+        {/* Art-card frame */}
+        <motion.div style={{ y: frameY, position: "relative", zIndex: 1, width: "100%" }}>
+          <motion.div
+            className="pf-frame"
+            initial={{ opacity: 0, x: -40, rotate: -3 }}
+            animate={{ opacity: 1, x: 0, rotate: 0 }}
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="pf-frame-inner">
+              <p className="pf-monogram" aria-label="VF initials">VF</p>
+            </div>
+            <div className="pf-frame-badge" aria-label="Availability status">
+              <span className="pf-badge-dot" />
+              <span className="pf-badge-txt">Open to Opportunities</span>
+            </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+
+      {/* Text column */}
+      <motion.div style={{ y: textY }}>
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <p className="pf-hero-tag">
+            Full-Stack Developer · Pune, India
+          </p>
+
+          <h1 className="pf-hero-h1">Varad</h1>
+          <p className="pf-hero-h1-outline" aria-label="Fegade">Fegade</p>
+
+          <p className="pf-hero-desc">
+            B.E. Computer Engineering at PCCOER · 9.42 CGPA.
+            I ship production-grade web apps — clean REST APIs, optimised React renders,
+            and zero fluff in the commit log. 3+ live projects running right now.
+          </p>
+
+          <div className="pf-cta-row">
+            <a href="#projects" className="pf-btn-primary">
+              View Projects <ArrowUpRight size={15} strokeWidth={2.5} />
+            </a>
+            <a href="mailto:varadfegade@gmail.com" className="pf-btn-secondary">
+              <Mail size={14} strokeWidth={2} /> Say Hello
+            </a>
+          </div>
+        </motion.div>
+      </motion.div>
+    </header>
   );
-};
+}
 
-// ─── BLUEPRINT PROJECT CARD ───────────────────────────────────────────────────
-const ProjItem = ({ project, index }: any) => (
-  <div className="proj-item r">
-    <div className="proj-num">0{index + 1}</div>
-    <div className="proj-info">
-      <div className="proj-title">{project.title}</div>
-      <div className="proj-desc">{project.desc}</div>
-    </div>
-    <div className="proj-tags">
-      {project.tags.map((t: string) => <span key={t} className="tag">{t}</span>)}
-      <span className="tag" style={{ borderColor: "var(--coral)", color: "var(--coral)" }}>
-        {project.status}
-      </span>
-    </div>
-    <div className="proj-cta">
-      <a href={project.url} target="_blank" rel="noopener noreferrer" className="arrow-btn">
-        ↗
-      </a>
-    </div>
-  </div>
-);
+// ─── ABOUT ────────────────────────────────────────────────────────────────────
+function About() {
+  return (
+    <section id="about" className="pf-section" aria-labelledby="about-heading">
+      <div className="pf-section-label pf-r">
+        <span className="pf-section-label-txt">§ 01 — About</span>
+        <div className="pf-section-label-line" />
+      </div>
 
-// ─── REVEAL HOOK ─────────────────────────────────────────────────────────────
-const useReveal = () => {
-  useEffect(() => {
-    const els = document.querySelectorAll(".r");
-    const io = new IntersectionObserver(entries => {
-      entries.forEach((e, i) => {
-        if (e.isIntersecting) {
-          setTimeout(() => e.target.classList.add("in"), i * 70);
-          io.unobserve(e.target);
-        }
-      });
-    }, { threshold: 0.1 });
-    els.forEach(el => io.observe(el));
-    return () => io.disconnect();
-  }, []);
-};
+      <div className="pf-about-grid pf-r">
+        <div className="pf-about-left">
+          <p className="pf-serif-quote" id="about-heading">
+            &ldquo;Architecture first.{" "}
+            <em>Abstractions</em> second.&rdquo;
+          </p>
+          <p style={{ fontSize: "15px", lineHeight: 1.85, color: "var(--ink-2)", marginBottom: "18px" }}>
+            Second-year CE student at PCCOER, Pune. I write code that runs in production —
+            clean REST contracts, optimized React render cycles, zero fluff in the commit log.
+            Every project on this page is accessible via a real URL right now.
+          </p>
+          <p style={{ fontSize: "15px", lineHeight: 1.85, color: "var(--ink-2)", marginBottom: "28px" }}>
+            Currently exploring LLM-backed web services — how to embed them without blowing up
+            token budgets or breaking existing API contracts.
+          </p>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            {["EN", "HI", "MR"].map((l) => (
+              <span key={l} className="pf-pill" style={{ fontWeight: 600 }}>{l}</span>
+            ))}
+          </div>
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
+          <div className="pf-pills">
+            {["React", "Next.js 14", "Node.js", "MongoDB", "TypeScript", "C++"].map((t) => (
+              <span key={t} className="pf-pill">{t}</span>
+            ))}
+          </div>
+        </div>
+
+        <div className="pf-about-right">
+          <p className="pf-about-right-heading">Education</p>
+          {[
+            { yr: "2024 – Ongoing", school: "PCCOER — SPPU", deg: "B.E. Computer Engineering", score: "9.42 CGPA", hot: true },
+            { yr: "2022 – 2024", school: "Matoshri Jr. College", deg: "HSC · Science", score: "79.83%", hot: false },
+            { yr: "2022", school: "K. Narkhede Vidyalaya", deg: "SSC", score: "94.00%", hot: false },
+          ].map((e, i) => (
+            <article key={i} className="pf-edu-item">
+              <div className="pf-edu-yr">{e.yr}</div>
+              <div className="pf-edu-school">{e.school}</div>
+              <div className="pf-edu-score">
+                {e.deg} ·{" "}
+                <span style={{ color: e.hot ? "var(--terracotta)" : "var(--sage)" }}>
+                  {e.score}
+                </span>
+              </div>
+            </article>
+          ))}
+
+          <div style={{ marginTop: "36px", paddingTop: "28px", borderTop: "1px solid var(--border)" }}>
+            <p className="pf-about-right-heading" style={{ marginBottom: "16px" }}>Find Me</p>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <a
+                href="https://github.com/varadfegade"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  fontSize: "13px", fontWeight: 500,
+                  color: "var(--ink-2)", textDecoration: "none",
+                  padding: "7px 14px",
+                  border: "1px solid var(--border)", borderRadius: "999px",
+                  transition: "border-color 0.2s, color 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--terracotta)"; e.currentTarget.style.color = "var(--terracotta)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--ink-2)"; }}
+              >
+                <Github size={14} /> GitHub
+              </a>
+              <a
+                href="mailto:varadfegade@gmail.com"
+                style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  fontSize: "13px", fontWeight: 500,
+                  color: "var(--ink-2)", textDecoration: "none",
+                  padding: "7px 14px",
+                  border: "1px solid var(--border)", borderRadius: "999px",
+                  transition: "border-color 0.2s, color 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--terracotta)"; e.currentTarget.style.color = "var(--terracotta)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--ink-2)"; }}
+              >
+                <MapPin size={14} /> Pune, India
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
 const PROJECTS = [
   {
-    title: "SIGNLINGO",
-    desc: "Real-time sign language interpreter. WebRTC-compatible. Bridges ASL/ISL gestures into text streams for use inside live video calls — no plugin required.",
-    tags: ["Computer Vision", "WebRTC", "React.js", "A11y"],
+    title: "SignLingo",
+    desc: "Real-time sign language interpreter. WebRTC-compatible. Bridges ASL/ISL gestures into text streams for live video calls — no plugin required.",
+    tags: ["Computer Vision", "WebRTC", "React.js", "Accessibility"],
     status: "LIVE",
     url: "https://varadfegade.github.io/signLanguageProject/",
   },
   {
-    title: "SMART PARKING",
+    title: "Smart Parking",
     desc: "Pre-booking slot reservation engine with O(1) vehicle retrieval. Eliminates congestion at scale. Persistent state via MongoDB, deployed on Render.",
-    tags: ["MERN Stack", "MongoDB", "Express.js", "Reservations"],
+    tags: ["MERN Stack", "MongoDB", "Express.js"],
     status: "LIVE",
     url: "https://parking-management-3p2t.onrender.com",
   },
   {
-    title: "CODECRAFT 2K26",
-    desc: "Official platform for PCCOER's coding club. Handles event publishing, schedule management, and member registration. Zero-downtime deploys on Vercel edge.",
-    tags: ["Next.js 14", "TypeScript", "Vercel", "Club Platform"],
+    title: "CodeCraft 2K26",
+    desc: "Official platform for PCCOER coding club. Handles event publishing, schedule management, and member registration. Zero-downtime deploys on Vercel edge.",
+    tags: ["Next.js 14", "TypeScript", "Vercel"],
     status: "DEPLOYED",
     url: "https://codecarft-x-pccoer.vercel.app/",
   },
 ];
 
-// ─── APP ──────────────────────────────────────────────────────────────────────
-// IMPORTANT: We added `onBack` here so you can navigate back to VaradOS
-export default function Portfolio({ onBack }: { onBack: () => void }) {
+function Projects() {
+  return (
+    <section id="projects" className="pf-section" aria-labelledby="projects-heading">
+      <div className="pf-section-label pf-r">
+        <span className="pf-section-label-txt">§ 02 — Projects</span>
+        <div className="pf-section-label-line" />
+      </div>
+      <h2
+        id="projects-heading"
+        style={{
+          fontFamily: "'Lora', serif",
+          fontSize: "clamp(28px, 3.5vw, 42px)",
+          fontWeight: 600,
+          color: "var(--ink)",
+          marginBottom: "40px",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.2,
+        }}
+        className="pf-r"
+      >
+        Selected Works
+      </h2>
+
+      <div
+        className="pf-proj-list pf-r"
+        style={{ border: "1px solid var(--border)", borderRadius: "20px", overflow: "hidden", background: "var(--frame)", boxShadow: "var(--shadow-sm)" }}
+      >
+        {PROJECTS.map((p, i) => (
+          <a
+            key={p.title}
+            href={p.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pf-proj-row"
+            aria-label={`${p.title} — ${p.status}`}
+          >
+            <div className="pf-proj-num" aria-hidden="true">0{i + 1}</div>
+            <div className="pf-proj-body">
+              <h3 className="pf-proj-title">{p.title}</h3>
+              <p className="pf-proj-desc">{p.desc}</p>
+              <div>
+                {p.tags.map((t) => <span key={t} className="pf-tag">{t}</span>)}
+                <span className="pf-tag" style={{ borderColor: "rgba(94,122,99,0.4)", color: "var(--sage)" }}>
+                  {p.status}
+                </span>
+              </div>
+            </div>
+            <div className="pf-proj-arrow" aria-hidden="true">
+              <div className="pf-arrow-btn">
+                <ArrowUpRight size={18} />
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── CONTACT ──────────────────────────────────────────────────────────────────
+function Contact() {
+  return (
+    <section id="contact" className="pf-section" aria-labelledby="contact-heading">
+      <div className="pf-section-label pf-r">
+        <span className="pf-section-label-txt">§ 03 — Contact</span>
+        <div className="pf-section-label-line" />
+      </div>
+
+      <div className="pf-contact-inner pf-r">
+        <h2 id="contact-heading" className="pf-contact-h2">
+          Let&apos;s build something <br />
+          <em>remarkable</em>.
+        </h2>
+        <p className="pf-contact-sub">
+          Currently open to new roles — full-time, freelance, or just an interesting conversation.
+          I respond to every email.
+        </p>
+        <a href="mailto:varadfegade@gmail.com" className="pf-btn-primary" style={{ background: "var(--terracotta)", boxShadow: "0 4px 24px rgba(184,92,56,0.35)" }}>
+          varadfegade@gmail.com <Mail size={15} strokeWidth={2.5} />
+        </a>
+      </div>
+    </section>
+  );
+}
+
+// ─── FOOTER ───────────────────────────────────────────────────────────────────
+function Footer({ onBack }: { onBack: () => void }) {
+  return (
+    <footer className="pf-footer" role="contentinfo">
+      <p className="pf-footer-copy">
+        © {new Date().getFullYear()} <b>Varad Fegade</b> · Built with Next.js
+      </p>
+      <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+        <a href="https://github.com/varadfegade" target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: "13px", color: "var(--ink-3)", textDecoration: "none", transition: "color 0.2s" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-3)")}
+        >
+          GitHub
+        </a>
+        <button
+          onClick={onBack}
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: "13px", fontWeight: 500,
+            color: "var(--ink-2)", background: "transparent",
+            border: "1px solid var(--border)", borderRadius: "999px",
+            padding: "6px 16px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "6px",
+            transition: "border-color 0.2s, color 0.2s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--terracotta)"; e.currentTarget.style.color = "var(--terracotta)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--ink-2)"; }}
+        >
+          <ArrowLeft size={13} /> Return to OS
+        </button>
+      </div>
+    </footer>
+  );
+}
+
+// ─── ROOT EXPORT ──────────────────────────────────────────────────────────────
+export default function ModernPortfolio({ onBack }: { onBack: () => void }) {
   useReveal();
-  const [sent, setSent] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", msg: "" });
 
   return (
-    <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-      <G />
-      <Cursor />
+    <div className="pf-root">
+      <Styles />
+      <DotGrid />
+      <Navbar onBack={onBack} />
 
-      {/* NAV */}
-      <nav>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          {/* Back button to return to the OS view */}
-          <button onClick={onBack} className="n-link" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>←</span> RETURN TO OS
-          </button>
-          <a href="#" className="n-logo">VF<span>.</span>DEV</a>
-        </div>
-        
-        <ul className="n-links">
-          {["about","stack","projects","contact"].map(l => (
-            <li key={l}><a href={`#${l}`} className="n-link">{l}</a></li>
-          ))}
-        </ul>
-        <a href="mailto:varadfegade@gmail.com" className="n-cta">hire_me</a>
-      </nav>
+      <main role="main">
+        <Hero />
+        <SkillMarquee />
+        <About />
+        <Projects />
+        <Contact />
+      </main>
 
-      {/* HERO */}
-      <section className="hero" style={{ paddingTop: "140px" }}>
-        <div className="hero-grid" />
-        <div className="hero-vignette" />
-        <WarpGrid />
-
-        {/* Oversized bg text */}
-        <span className="bnum" style={{ top: "50%", left: "-20px", transform: "translateY(-55%)", opacity: 0.06 }}>
-          DEV
-        </span>
-
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <div className="hero-tag">
-            <Scramble text="// B.E. Computer Engineering · PCCOER, Pune · 9.42 CGPA" delay={300} />
-          </div>
-          <h1 className="h1-big">
-            <Scramble text="VARAD" delay={700} as="span" /><br />
-            <span className="stroke">
-              <Scramble text="FEGADE" delay={1050} as="span" />
-            </span>
-          </h1>
-          <div className="hero-sub">
-            <div className="hero-desc">
-              <Scramble
-                as="span"
-                text="Full-stack dev. 3 live projects. Ships on Vercel, Render, and GitHub Pages."
-                delay={1500}
-              />
-              <br />
-              <span style={{ color: "var(--dim)", fontSize: "11px" }}>
-                Exploring LLM-to-web integration without torching the CI pipeline.
-              </span>
-            </div>
-            <div className="hero-stats">
-              {[
-                { v: "9.42", l: "CGPA" },
-                { v: "3+",  l: "LIVE_PROJECTS" },
-                { v: "94%",  l: "SSC_SCORE" },
-              ].map(s => (
-                <div key={s.l}>
-                  <div className="hstat-v">{s.v}</div>
-                  <div className="hstat-l">{s.l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* MARQUEE */}
-      <Marquee />
-
-      {/* ABOUT */}
-      <section id="about">
-        <div className="wrap" style={{ position: "relative" }}>
-          <span className="bnum" style={{ bottom: -40, right: -20, opacity: 0.04 }}>01</span>
-          <div className="lbl r"><span className="lbl-line" />§ 01 · ABOUT</div>
-          <div className="about-grid r">
-            <div className="about-left">
-              <p className="serif-quote r">
-                "Architecture first.<br />
-                <em>Abstractions</em> second."
-              </p>
-              <p style={{ fontSize: "12px", color: "var(--dim)", lineHeight: 1.9, marginBottom: "20px" }} className="r d1">
-                Second-year CE student at PCCOER, Pune. I write code that runs in production —
-                clean REST contracts, optimized React render cycles, zero
-                fluff in the commit log. Every project on this page is accessible via
-                a real URL right now.
-              </p>
-              <p style={{ fontSize: "12px", color: "var(--dim)", lineHeight: 1.9, marginBottom: "32px" }} className="r d2">
-                Currently digging into LLM-backed web services — specifically how to embed
-                them without blowing up token budgets or breaking existing API contracts.
-              </p>
-              <div className="r d3" style={{ display: "flex", gap: "10px" }}>
-                {["EN","HI","MR"].map(l => (
-                  <span key={l} style={{
-                    fontSize: "9px", letterSpacing: "0.14em", padding: "6px 14px",
-                    border: "1px solid var(--line)", color: "var(--dim)"
-                  }}>{l}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="about-right">
-              <div className="lbl r" style={{ marginBottom: "24px" }}>
-                <span className="lbl-line" />EDUCATION
-              </div>
-              {[
-                { yr: "2024–ONGOING", school: "PCCOER — SPPU", deg: "B.E. Computer Engineering", score: "9.42 CGPA", hot: true },
-                { yr: "2022–2024",    school: "Matoshri Jr. College", deg: "HSC · Science", score: "79.83%" },
-                { yr: "2022",         school: "K. Narkhede Vidyalaya", deg: "SSC", score: "94.00%" },
-              ].map((e, i) => (
-                <div key={i} className={`edu-item r d${i}`}>
-                  <div className="edu-yr">{e.yr}</div>
-                  <div className="edu-school">{e.school}</div>
-                  <div className="edu-score">
-                    {e.deg} · <span style={{ color: e.hot ? "var(--cyan)" : "var(--coral)" }}>{e.score}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* STACK */}
-      <section id="stack" className="stack-section">
-        <div className="wrap" style={{ position: "relative" }}>
-          <span className="bnum" style={{ top: -60, right: -20, opacity: 0.04 }}>02</span>
-          <div className="lbl r"><span className="lbl-line" />§ 02 · TECH_GRAPH</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "64px", alignItems: "center" }}>
-            <div>
-              <h2 className="r" style={{
-                fontFamily: "var(--f-display)", fontSize: "clamp(32px, 5vw, 64px)",
-                color: "var(--cream)", lineHeight: 1.05, marginBottom: "16px", letterSpacing: "0.03em"
-              }}>
-                DEPENDENCY<br />
-                <span style={{ color: "var(--cyan)", textShadow: "0 0 40px rgba(0,229,255,0.3)" }}>GRAPH</span>
-              </h2>
-              <p className="r d1" style={{ fontSize: "11px", color: "var(--dim)", lineHeight: 1.8, marginBottom: "36px" }}>
-                // Orbit speed ∝ production frequency.<br />
-                Hover nodes to inspect. Four rings, 14 nodes.
-              </p>
-              <div className="stack-grid r d2">
-                {[
-                  { cat: "Frontend",  items: "React.js · Next.js 14 · TypeScript · Tailwind · HTML5 · CSS3" },
-                  { cat: "Backend",   items: "Node.js · Express.js · REST APIs · MERN" },
-                  { cat: "Languages", items: "JavaScript · C++ · Java · Python · C" },
-                  { cat: "Tooling",   items: "Git · GitHub · Vercel · OBS Studio" },
-                  { cat: "CS Core",   items: "DSA in C++ · Algorithms" },
-                  { cat: "AI/ML",     items: "LLM integration · OpenCV · Gesture ML" },
-                ].map(s => (
-                  <div key={s.cat} className="stack-cell">
-                    <div className="sc-cat">{s.cat}</div>
-                    <div className="sc-items">{s.items}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="r d1">
-              <Orbit />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* PROJECTS */}
-      <section id="projects" className="proj-section">
-        <div className="wrap" style={{ position: "relative" }}>
-          <span className="bnum" style={{ top: -40, left: -20, opacity: 0.04 }}>03</span>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "40px" }}>
-            <div>
-              <div className="lbl r"><span className="lbl-line" />§ 03 · PROJECT_FILES</div>
-              <h2 className="r d1" style={{
-                fontFamily: "var(--f-display)", fontSize: "clamp(32px, 5vw, 64px)",
-                color: "var(--cream)", letterSpacing: "0.03em", lineHeight: 1
-              }}>
-                SHIPPED.<br />
-                <span style={{ color: "var(--coral)", textShadow: "0 0 40px rgba(255,61,90,0.3)" }}>
-                  NOT DEMOED.
-                </span>
-              </h2>
-            </div>
-            <span className="r" style={{ fontSize: "10px", color: "var(--dim)", letterSpacing: "0.08em" }}>
-              // hover row to inspect
-            </span>
-          </div>
-          <div className="proj-list">
-            {PROJECTS.map((p, i) => <ProjItem key={p.title} project={p} index={i} />)}
-          </div>
-        </div>
-      </section>
-
-      {/* CONTACT */}
-      <section id="contact" className="contact-section">
-        <div className="wrap" style={{ position: "relative" }}>
-          <span className="bnum" style={{ bottom: -60, right: -20, opacity: 0.04 }}>04</span>
-          <div className="lbl r"><span className="lbl-line" />§ 04 · CONTACT</div>
-          <div className="contact-grid r">
-            <div className="c-left">
-              <h2 className="c-heading r">
-                LET'S<br />
-                BUILD<br />
-                <span className="hl">PRECISE.</span>
-              </h2>
-              <p className="c-body r d1">
-                Open to internships, contracts, and collabs where<br />
-                the spec is clear and git blame matters.
-              </p>
-
-              {[
-                { lbl: "EMAIL",    val: "varadfegade@gmail.com",  href: "mailto:varadfegade@gmail.com" },
-                { lbl: "GITHUB",   val: "github.com/varadfegade", href: "https://github.com/varadfegade" },
-                { lbl: "LINKEDIN", val: "varad-fegade",           href: "https://www.linkedin.com/in/varad-fegade-683455311/" },
-                { lbl: "PHONE",    val: "+91 7249053481",         href: "tel:+917249053481" },
-                { lbl: "LOCATION", val: "Pune, Maharashtra, IN",  href: null },
-              ].map((c, i) => (
-                <div key={c.lbl} className={`c-link-row r d${i}`}>
-                  <span className="c-lbl">{c.lbl}</span>
-                  {c.href
-                    ? <a href={c.href} target="_blank" rel="noopener noreferrer" className="c-val">{c.val}</a>
-                    : <span className="c-val" style={{ color: "var(--dim)" }}>{c.val}</span>
-                  }
-                </div>
-              ))}
-            </div>
-
-            <div className="c-right">
-              {sent ? (
-                <div className="f-sent">
-                  <div className="f-sent-h">QUEUED.</div>
-                  <div style={{ fontSize: "11px", color: "var(--dim)", lineHeight: 1.8 }}>
-                    // Response within 24h.<br />
-                    // Signal received, noise discarded.
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={(e) => { e.preventDefault(); setSent(true); }}>
-                  <div className="f-group r">
-                    <label className="f-label">NAME</label>
-                    <input className="f-input" placeholder="your_name" required
-                      value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                  </div>
-                  <div className="f-group r d1">
-                    <label className="f-label">EMAIL</label>
-                    <input className="f-input" type="email" placeholder="you@company.io" required
-                      value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-                  </div>
-                  <div className="f-group r d2">
-                    <label className="f-label">MESSAGE</label>
-                    <textarea className="f-input" rows={5} placeholder="// what are we building?"
-                      style={{ resize: "vertical" }} required
-                      value={form.msg} onChange={e => setForm(f => ({ ...f, msg: e.target.value }))} />
-                  </div>
-                  <div className="r d3">
-                    <button type="submit" className="f-submit">SEND MESSAGE</button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      <footer>
-        <span>© 2026 Varad Fegade · <b>VF.DEV</b></span>
-        <span>Pune, MH · v2.0.0</span>
-      </footer>
+      <Footer onBack={onBack} />
     </div>
   );
 }

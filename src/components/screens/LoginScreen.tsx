@@ -53,9 +53,9 @@ export default function LoginScreen({ onLogin, onModern }: { onLogin: () => void
 
           <div className="relative w-40 h-40 rounded-full shadow-[0_20px_40px_rgba(0,0,0,0.5)] border shadow-black/50 border-white/10 bg-gradient-to-b from-white/20 to-transparent p-1 transition-transform hover:scale-105 duration-300">
             <img
-              src="https://api.dicebear.com/7.x/initials/svg?seed=VF&backgroundColor=0ea5e9"
-              alt="User"
-              className="w-full h-full rounded-full object-cover inner-shadow"
+              src="/images/userAsset/UserImage.png"
+              alt="Varad Fegade"
+              className="w-full h-full rounded-full object-cover object-top inner-shadow"
             />
             {/* Glossy specular highlight */}
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/30 to-transparent opacity-40 pointer-events-none mix-blend-overlay"></div>
